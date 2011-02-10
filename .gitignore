@@ -1,0 +1,9 @@
+build
+*.pbxuser
+*.mode?v3
+*.perspective
+*.perspectivev3
+*.swp
+*.ipa
+Resources/Cars/Originals/*
+.DS_Store
