@@ -25,7 +25,6 @@
 #import "BWHockeyViewController.h"
 #import "BWHockeyController.h"
 #import "BWWebViewController.h"
-#import "NSString+URLEncoding.h"
 #import "BWGlobal.h"
 
 

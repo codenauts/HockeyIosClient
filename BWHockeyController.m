@@ -23,7 +23,6 @@
 //  THE SOFTWARE.
 
 #import "BWHockeyController.h"
-#import "NSString+URLEncoding.h"
 #import "JSON.h"
 #import <sys/sysctl.h>
 
