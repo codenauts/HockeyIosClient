@@ -1,8 +1,9 @@
 //
-//  BWWebViewController.h
+//  BWApp.h
+//  HockeyDemo
 //
-//  Created by Andreas Linde on 8/17/10.
-//  Copyright 2010 Andreas Linde. All rights reserved.
+//  Created by Peter Steinberger on 04.02.11.
+//  Copyright 2011 Buzzworks. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -22,11 +23,32 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
 
+@interface BWApp : NSObject {
+  NSString *name_;
+  NSString *version_;
+  NSString *shortVersion_;
+  NSString *notes_;
+  NSDate   *date_;
+  NSNumber *size_;
+}
+@property (nonatomic, copy) NSString *name;
+@property (nonatomic, copy) NSString *version;
+@property (nonatomic, copy) NSString *shortVersion;
+@property (nonatomic, copy) NSString *notes;
+@property (nonatomic, copy) NSDate *date;
+@property (nonatomic, copy) NSNumber *size;
 
-@interface BWWebViewController : UIViewController <UIWebViewDelegate>
+- (NSString *)nameAndVersionString;
+- (NSString *)versionString;
+- (NSString *)dateString;
+- (NSString *)sizeInMB;
+- (NSString *)notesOrEmptyString;
+- (void)setDateWithTimestamp:(NSTimeInterval)timestamp;
+- (BOOL)isValid;
+- (BOOL)isEqualToBWApp:(BWApp *)anApp;
 
-- (id)initWithHTMLString:(NSString *)htmlString;
++ (BWApp *)appFromDict:(NSDictionary *)dict;
 
 @end

@@ -1,8 +1,9 @@
 //
-//  BWHockeyViewController.h
+//  PSWebTableViewCell.h
+//  HockeyDemo
 //
-//  Created by Andreas Linde on 8/17/10.
-//  Copyright 2010 Andreas Linde. All rights reserved.
+//  Created by Peter Steinberger on 04.02.11.
+//  Copyright 2011 Peter Steinberger. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -22,43 +23,21 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#import <UIKit/UIKit.h>
-#import "PSStoreButton.h"
-#import "PSAppStoreHeader.h"
+#import <Foundation/Foundation.h>
 
-typedef enum {
-	AppStoreButtonStateOffline,
-	AppStoreButtonStateCheck,
-	AppStoreButtonStateSearching,
-	AppStoreButtonStateUpdate,
-	AppStoreButtonStateInstalling
-} AppStoreButtonState;
-
-
-@class BWHockeyManager;
-
-@interface BWHockeyViewController : UITableViewController <PSStoreButtonDelegate> {
-    BWHockeyManager *hockeyManager_;
+@interface PSWebTableViewCell : UITableViewCell <UIWebViewDelegate> {
+    UIWebView *webView_;
+    NSString *webViewContent_;
+    CGSize webViewSize_;
     
-    NSDictionary *cellLayout;
-    
-    BOOL modal_;
-    BOOL showAllVersions_;
-    UIStatusBarStyle statusBarStyle_;
-    PSAppStoreHeader *appStoreHeader_;
-    PSStoreButton *appStoreButton_;
-    
-    id popOverController_;
-    
-    AppStoreButtonState appStoreButtonState_;
-    
-    NSMutableArray *cells_;
+    UIColor *cellBackgroundColor_;
 }
 
-@property (nonatomic, retain) BWHockeyManager *hockeyManager;
-@property (nonatomic, readwrite) BOOL modal;
+@property (nonatomic, retain) UIWebView *webView;
+@property (nonatomic, copy) NSString *webViewContent;
+@property (nonatomic, assign) CGSize webViewSize;
+@property (nonatomic, retain) UIColor *cellBackgroundColor;
 
-- (id)init:(BWHockeyManager *)newHockeyManager modal:(BOOL)newModal;
-- (id)init;
+- (void)addWebView;
 
 @end

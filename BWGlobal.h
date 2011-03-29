@@ -2,7 +2,7 @@
 //  BWGlobal.h
 //
 //  Created by Andreas Linde on 08/17/10.
-//  Copyright 2010 Andreas Linde. All rights reserved.
+//  Copyright 2010-2011 Andreas Linde, Peter Steinberger. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -22,20 +22,76 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+#import "BWHockeyManager.h"
+#import "BWApp.h"
 
-#define BETA_DOWNLOAD_TYPE_PROFILE	@"profile"
-#define BETA_DOWNLOAD_TYPE_APP		@"app"
+#define HOCKEYKIT_VERSION_MAJOR 2
+#define HOCKEYKIT_VERSION_MINOR 0
 
-#define BETA_UPDATE_RESULT		@"result"
-#define BETA_UPDATE_TITLE		@"title"
-#define BETA_UPDATE_SUBTITLE	@"subtitle"
-#define BETA_UPDATE_NOTES		@"notes"
-#define BETA_UPDATE_VERSION		@"version"
+// uncomment this line to enable NSLog-debugging output
+//#define kHockeyDebugEnabled
 
-#define BETA_UPDATE_CHECK_STARTUP	0
-#define BETA_UPDATE_CHECK_DAILY		1
-#define BETA_UPDATE_CHECK_MANUAL	2
+#define kArrayOfLastHockeyCheck		@"ArrayOfLastHockeyCheck"
+#define kDateOfLastHockeyCheck		@"DateOfLastHockeyCheck"
+#define kDateOfVersionInstallation	@"DateOfVersionInstallation"
+#define kUsageTimeOfCurrentVersion	@"UsageTimeOfCurrentVersion"
+#define kUsageTimeForVersionString	@"kUsageTimeForVersionString"
+#define kHockeyAutoUpdateSetting	@"HockeyAutoUpdateSetting"
+#define kHockeyAllowUserSetting		@"HockeyAllowUserSetting"
+#define kHockeyAllowUsageSetting	@"HockeyAllowUsageSetting"
+#define kHockeyAutoUpdateSetting	@"HockeyAutoUpdateSetting"
+#define kHockeyAuthorizedVersion	@"HockeyAuthorizedVersion"
+#define kHockeyAuthorizedToken		@"HockeyAuthorizedToken"
 
-#define kDictionaryOfLastHockeyCheck	@"DictionaryOfLastHockeyCheck"
-#define kDateOfLastHockeyCheck			@"DateOfLastHockeyCheck"
-#define kHockeyAutoUpdateSetting		@"HockeyAutoUpdateSetting"
+#define kHockeyBundleName @"Hockey.bundle"
+
+
+#ifdef kHockeyDebugEnabled
+#define BWLog(fmt, ...) NSLog((@"[HockeyLib] %s/%d " fmt), __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__);
+#else
+#define BWLog(...)
+#endif
+
+NSBundle *hockeyBundle();
+NSString *BWmd5(NSString *str);
+
+#define BWLocalize(StringToken) NSLocalizedStringFromTableInBundle(StringToken, @"Hockey", hockeyBundle(), @"")
+
+
+// compatibility helper
+#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_3_2
+#define kCFCoreFoundationVersionNumber_iPhoneOS_3_2 478.61
+#endif
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 32000
+#define IF_3_2_OR_GREATER(...) \
+if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_3_2) \
+{ \
+__VA_ARGS__ \
+}
+#else
+#define IF_3_2_OR_GREATER(...)
+#endif
+#define IF_PRE_3_2(...) \
+if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_3_2) \
+{ \
+__VA_ARGS__ \
+}
+
+#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_4_0
+#define kCFCoreFoundationVersionNumber_iPhoneOS_4_0 550.32
+#endif
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 40000
+#define IF_IOS4_OR_GREATER(...) \
+if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_4_0) \
+{ \
+__VA_ARGS__ \
+}
+#else
+#define IF_IOS4_OR_GREATER(...)
+#endif
+
+#define IF_PRE_IOS4(...)  \
+if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_4_0)  \
+{ \
+__VA_ARGS__ \
+}

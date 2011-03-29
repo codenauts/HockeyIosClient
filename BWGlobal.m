@@ -1,8 +1,8 @@
 //
-//  BWHockeyViewController.h
+//  BWGlobal.h
 //
-//  Created by Andreas Linde on 8/17/10.
-//  Copyright 2010 Andreas Linde. All rights reserved.
+//  Created by Andreas Linde on 08/17/10.
+//  Copyright 2010-2011 Andreas Linde, Peter Steinberger. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -22,43 +22,32 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#import <UIKit/UIKit.h>
-#import "PSStoreButton.h"
-#import "PSAppStoreHeader.h"
+#import "BWGlobal.h"
+#include <CommonCrypto/CommonDigest.h>
 
-typedef enum {
-	AppStoreButtonStateOffline,
-	AppStoreButtonStateCheck,
-	AppStoreButtonStateSearching,
-	AppStoreButtonStateUpdate,
-	AppStoreButtonStateInstalling
-} AppStoreButtonState;
-
-
-@class BWHockeyManager;
-
-@interface BWHockeyViewController : UITableViewController <PSStoreButtonDelegate> {
-    BWHockeyManager *hockeyManager_;
-    
-    NSDictionary *cellLayout;
-    
-    BOOL modal_;
-    BOOL showAllVersions_;
-    UIStatusBarStyle statusBarStyle_;
-    PSAppStoreHeader *appStoreHeader_;
-    PSStoreButton *appStoreButton_;
-    
-    id popOverController_;
-    
-    AppStoreButtonState appStoreButtonState_;
-    
-    NSMutableArray *cells_;
+NSBundle *hockeyBundle() {
+    static NSBundle* bundle = nil;
+    if (!bundle) {
+        NSString* path = [[[NSBundle mainBundle] resourcePath]
+                          stringByAppendingPathComponent:kHockeyBundleName];
+        bundle = [[NSBundle bundleWithPath:path] retain];
+    }
+    return bundle;
 }
 
-@property (nonatomic, retain) BWHockeyManager *hockeyManager;
-@property (nonatomic, readwrite) BOOL modal;
-
-- (id)init:(BWHockeyManager *)newHockeyManager modal:(BOOL)newModal;
-- (id)init;
-
-@end
+NSString *BWmd5(NSString *str) {
+	const char *cStr = [str UTF8String];
+	unsigned char result[CC_MD5_DIGEST_LENGTH];
+	CC_MD5( cStr, strlen(cStr), result );
+	return [NSString 
+            stringWithFormat: @"%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+            result[0], result[1],
+            result[2], result[3],
+            result[4], result[5],
+            result[6], result[7],
+            result[8], result[9],
+            result[10], result[11],
+            result[12], result[13],
+            result[14], result[15]
+            ];
+}

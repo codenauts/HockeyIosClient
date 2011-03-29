@@ -1,8 +1,9 @@
 //
-//  BWHockeyViewController.h
+//  UIImage+HockeyAdditions.h
+//  HockeyDemo
 //
-//  Created by Andreas Linde on 8/17/10.
-//  Copyright 2010 Andreas Linde. All rights reserved.
+//  Created by Peter Steinberger on 10.01.11.
+//  Copyright 2011 Peter Steinberger. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -22,43 +23,14 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#import <UIKit/UIKit.h>
-#import "PSStoreButton.h"
-#import "PSAppStoreHeader.h"
+@interface UIImage (HockeyAdditions)
 
-typedef enum {
-	AppStoreButtonStateOffline,
-	AppStoreButtonStateCheck,
-	AppStoreButtonStateSearching,
-	AppStoreButtonStateUpdate,
-	AppStoreButtonStateInstalling
-} AppStoreButtonState;
+- (UIImage *)bw_roundedCornerImage:(NSInteger)cornerSize borderSize:(NSInteger)borderSize;
+- (UIImage *)bw_imageToFitSize:(CGSize)fitSize honorScaleFactor:(BOOL)honorScaleFactor;
+- (UIImage *)bw_reflectedImageWithHeight:(NSUInteger)height fromAlpha:(float)fromAlpha toAlpha:(float)toAlpha;
 
-
-@class BWHockeyManager;
-
-@interface BWHockeyViewController : UITableViewController <PSStoreButtonDelegate> {
-    BWHockeyManager *hockeyManager_;
-    
-    NSDictionary *cellLayout;
-    
-    BOOL modal_;
-    BOOL showAllVersions_;
-    UIStatusBarStyle statusBarStyle_;
-    PSAppStoreHeader *appStoreHeader_;
-    PSStoreButton *appStoreButton_;
-    
-    id popOverController_;
-    
-    AppStoreButtonState appStoreButtonState_;
-    
-    NSMutableArray *cells_;
-}
-
-@property (nonatomic, retain) BWHockeyManager *hockeyManager;
-@property (nonatomic, readwrite) BOOL modal;
-
-- (id)init:(BWHockeyManager *)newHockeyManager modal:(BOOL)newModal;
-- (id)init;
+- (id)bw_initWithContentsOfResolutionIndependentFile:(NSString *)path;
++ (UIImage*)bw_imageWithContentsOfResolutionIndependentFile:(NSString *)path;
++ (UIImage *)bw_imageNamed:(NSString *)imageName bundle:(NSString *)bundleName;
 
 @end

@@ -1,8 +1,8 @@
 //
-//  BWHockeyViewController.h
+//  NSString+HockeyAdditions.h
 //
-//  Created by Andreas Linde on 8/17/10.
-//  Copyright 2010 Andreas Linde. All rights reserved.
+//  Created by Jon Crosby on 10/19/07.
+//  Copyright 2007 Kaboomerang LLC. All rights reserved.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -22,43 +22,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#import <UIKit/UIKit.h>
-#import "PSStoreButton.h"
-#import "PSAppStoreHeader.h"
 
-typedef enum {
-	AppStoreButtonStateOffline,
-	AppStoreButtonStateCheck,
-	AppStoreButtonStateSearching,
-	AppStoreButtonStateUpdate,
-	AppStoreButtonStateInstalling
-} AppStoreButtonState;
+#import <Foundation/Foundation.h>
 
+@interface NSString (HockeyAdditions)
 
-@class BWHockeyManager;
-
-@interface BWHockeyViewController : UITableViewController <PSStoreButtonDelegate> {
-    BWHockeyManager *hockeyManager_;
-    
-    NSDictionary *cellLayout;
-    
-    BOOL modal_;
-    BOOL showAllVersions_;
-    UIStatusBarStyle statusBarStyle_;
-    PSAppStoreHeader *appStoreHeader_;
-    PSStoreButton *appStoreButton_;
-    
-    id popOverController_;
-    
-    AppStoreButtonState appStoreButtonState_;
-    
-    NSMutableArray *cells_;
-}
-
-@property (nonatomic, retain) BWHockeyManager *hockeyManager;
-@property (nonatomic, readwrite) BOOL modal;
-
-- (id)init:(BWHockeyManager *)newHockeyManager modal:(BOOL)newModal;
-- (id)init;
+- (NSString *)bw_URLEncodedString;
+- (NSString *)bw_URLDecodedString;
 
 @end
