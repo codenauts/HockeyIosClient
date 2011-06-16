@@ -43,9 +43,9 @@ typedef enum {
 } HockeyAuthorizationState;
 
 typedef enum {
-    HockeyUpdateCheckStartup,
-    HockeyUpdateCheckDaily,
-    HockeyUpdateCheckManually
+    HockeyUpdateCheckStartup = 0,
+    HockeyUpdateCheckDaily = 1,
+    HockeyUpdateCheckManually = 2
 } HockeyUpdateSetting;
 
 @protocol BWHockeyManagerDelegate;
@@ -56,7 +56,6 @@ typedef enum {
     
     NSString *updateURL_;
     NSString *appIdentifier_;
-    id reachability_;
     NSString *currentAppVersion_;
     
     UINavigationController *navController_;
@@ -118,7 +117,7 @@ typedef enum {
 // if NO, no such data is send to the server
 @property (nonatomic, assign, getter=shouldSendUserData) BOOL sendUserData;
 
-// if YES, the the users usage time of the app to the service, only in 15 minute granularity! (default)
+// if YES, the the users usage time of the app to the service, only in 1 minute granularity! (default)
 // if NO, no such data is send to the server
 @property (nonatomic, assign, getter=shouldSendUsageTime) BOOL sendUsageTime;
 
@@ -163,9 +162,6 @@ typedef enum {
 @property (nonatomic, assign) HockeyUpdateSetting updateSetting;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// only valid if Reachability is available
-- (BOOL)isUpdateURLOffline;
 
 // is an update available?
 - (BOOL)isUpdateAvailable;

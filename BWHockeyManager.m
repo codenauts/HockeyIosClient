@@ -43,18 +43,17 @@
 - (id)parseJSONResultString:(NSString *)jsonString;
 - (void)connectionOpened_;
 - (void)connectionClosed_;
-- (void)reachabilityChanged:(NSNotification *)notification;
 - (BOOL)shouldCheckForUpdates;
 - (void)startUsage;
 - (void)stopUsage;
 - (void)startManager;
+- (void)wentOnline;
 - (void)showAuthorizationScreen:(NSString *)message image:(NSString *)image;
 - (NSString *)currentUsageString;
 - (NSString *)installationDateString;
 - (NSString *)authenticationToken;
 - (HockeyAuthorizationState)authorizationState;
 
-@property (nonatomic, assign, getter=isUpdateURLOffline) BOOL updateURLOffline;
 @property (nonatomic, assign, getter=isUpdateAvailable) BOOL updateAvailable;
 @property (nonatomic, assign, getter=isCheckInProgress) BOOL checkInProgress;
 @property (nonatomic, retain) NSMutableData *receivedData;
@@ -81,7 +80,6 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 @synthesize updateURL = updateURL_;
 @synthesize appIdentifier = appIdentifier_;
 @synthesize urlConnection = urlConnection_;
-@synthesize updateURLOffline = updateURLOffline_;
 @synthesize checkInProgress = checkInProgress_;
 @synthesize receivedData = receivedData_;
 @synthesize sendUserData = sendUserData_;
@@ -122,12 +120,15 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 #pragma mark private
 
 - (void)reportError_:(NSError *)error {
-    BWLog(@"Error: %@", [error localizedDescription]);
+    BWHockeyLog(@"Error: %@", [error localizedDescription]);
     lastCheckFailed_ = YES;
     
     // only show error if we enable that
     if (showFeedback_) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:BWLocalize(@"HockeyError") message:[error localizedDescription] delegate:nil cancelButtonTitle:BWLocalize(@"OK") otherButtonTitles:nil];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:BWHockeyLocalize(@"HockeyError")
+                                                        message:[error localizedDescription]
+                                                       delegate:nil
+                                              cancelButtonTitle:BWHockeyLocalize(@"OK") otherButtonTitles:nil];
         [alert show];
         [alert release];
         showFeedback_ = NO;
@@ -141,7 +142,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 - (NSString *)getDevicePlatform_ {
 	size_t size;
 	sysctlbyname("hw.machine", NULL, &size, NULL, 0);
-	char *answer = malloc(size);
+	char *answer = (char*)malloc(size);
 	sysctlbyname("hw.machine", answer, &size, NULL, 0);
 	NSString *platform = [NSString stringWithCString:answer encoding: NSUTF8StringEncoding];
 	free(answer);
@@ -158,26 +159,6 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 		[(id)self.delegate connectionClosed];
 }
 
-// weak-linked reachability
-- (void)setupReachability:(SEL)selector {    
-    if (reachability_) {
-        [reachability_ performSelector:NSSelectorFromString(@"stopNotifier")];    
-        [reachability_ release];
-        reachability_ = nil;
-    }
-    
-    Class reachabilityClass = NSClassFromString(@"Reachability");
-    if (reachabilityClass) {
-        NSString *hostName = [[NSURL URLWithString:self.updateURL] host];
-        BWLog(@"setting up reachability for %@", hostName);
-        reachability_ = [[reachabilityClass performSelector:NSSelectorFromString(@"reachabilityWithHostName:") withObject:hostName] retain];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:selector name:@"kNetworkReachabilityChangedNotification" object:reachability_];
-        if ([reachability_ respondsToSelector:NSSelectorFromString(@"startNotifier")]) {
-            [reachability_ performSelector:NSSelectorFromString(@"startNotifier")];
-        }
-    }
-}
-
 - (void)startUsage {
     self.usageStartTimestamp = [NSDate date];
     BOOL newVersion = NO;
@@ -185,7 +166,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     if (![[NSUserDefaults standardUserDefaults] valueForKey:kUsageTimeForVersionString]) {
         newVersion = YES;
     } else {
-        if ([[[NSUserDefaults standardUserDefaults] valueForKey:kUsageTimeForVersionString] compare:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"]] != NSOrderedSame) {
+        if ([(NSString *)[[NSUserDefaults standardUserDefaults] valueForKey:kUsageTimeForVersionString] compare:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"]] != NSOrderedSame) {
             newVersion = YES;
         }
     }
@@ -210,8 +191,8 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     double currentUsageTime = [(NSNumber *)[[NSUserDefaults standardUserDefaults] valueForKey:kUsageTimeOfCurrentVersion] doubleValue];
     
     if (currentUsageTime > 0) {
-        // round (up) to 15 minutes
-        return [NSString stringWithFormat:@"%.0f", ceil(currentUsageTime / 900.0)*900];
+        // round (up) to 1 minute
+        return [NSString stringWithFormat:@"%.0f", ceil(currentUsageTime / 60.0)*60];
     } else {
         return @"0";
     }
@@ -291,7 +272,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         if ([UIWindow instancesRespondToSelector:@selector(rootViewController)]) {
             if ([window rootViewController]) {
                 visibleWindow = window;
-                BWLog(@"UIWindow with rootViewController found: %@", visibleWindow);
+                BWHockeyLog(@"UIWindow with rootViewController found: %@", visibleWindow);
                 break;
             }
         }
@@ -311,7 +292,6 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         checkInProgress_ = NO;
         dataFound = NO;
         updateAvailable_ = NO;
-        updateURLOffline_ = NO;
         lastCheckFailed_ = NO;
         currentAppVersion_ = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
         navController_ = nil;
@@ -332,7 +312,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         
         // load update setting from user defaults and check value
         if ([[NSUserDefaults standardUserDefaults] objectForKey:kHockeyAutoUpdateSetting]) {
-            self.updateSetting = [[NSUserDefaults standardUserDefaults] boolForKey:kHockeyAutoUpdateSetting];
+            self.updateSetting = (HockeyUpdateSetting)[[NSUserDefaults standardUserDefaults] integerForKey:kHockeyAutoUpdateSetting];
         } else {
             self.updateSetting = HockeyUpdateCheckStartup;
         }
@@ -354,6 +334,11 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         [self startUsage];
         
         [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(startManager)
+                                                     name:BWHockeyNetworkBecomeReachable
+                                                   object:nil];
+
+        [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(stopUsage)
                                                      name:UIApplicationWillTerminateNotification
                                                    object:nil];
@@ -362,14 +347,13 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 }
 
 - (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:BWHockeyNetworkBecomeReachable object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillTerminateNotification object:nil];
     
     IF_IOS4_OR_GREATER(
                        [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
-                       [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+                       [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillResignActiveNotification object:nil];
                        )
-    [reachability_ performSelector:NSSelectorFromString(@"stopNotifier")];    
-    [reachability_ release];
     self.delegate = nil;
     
     [urlConnection_ cancel];
@@ -398,7 +382,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 
 - (void)showUpdateView {
     if (currentHockeyViewController_) {
-        BWLog(@"update view already visible, aborting");
+        BWHockeyLog(@"update view already visible, aborting");
         return;
     }
     
@@ -443,7 +427,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     } else {
 		// if not, we add a subview to the window. A bit hacky but should work in most circumstances.
 		// Also, we don't get a nice animation for free, but hey, this is for beta not production users ;)
-        BWLog(@"No rootViewController found, using UIWindow-approach: %@", visibleWindow);
+        BWHockeyLog(@"No rootViewController found, using UIWindow-approach: %@", visibleWindow);
         [visibleWindow addSubview:navController_.view];
 	}
 }
@@ -451,15 +435,15 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 
 - (void)showCheckForUpdateAlert_ {
     if (!updateAlertShowing_) {
-        UIAlertView *alertView = [[[UIAlertView alloc] initWithTitle:BWLocalize(@"HockeyUpdateAvailable")
-                                                             message:[NSString stringWithFormat:BWLocalize(@"HockeyUpdateAlertTextWithAppVersion"), [self.app nameAndVersionString]]
+        UIAlertView *alertView = [[[UIAlertView alloc] initWithTitle:BWHockeyLocalize(@"HockeyUpdateAvailable")
+                                                             message:[NSString stringWithFormat:BWHockeyLocalize(@"HockeyUpdateAlertTextWithAppVersion"), [self.app nameAndVersionString]]
                                                             delegate:self
-                                                   cancelButtonTitle:BWLocalize(@"HockeyIgnore")
-                                                   otherButtonTitles:BWLocalize(@"HockeyShowUpdate"), nil
+                                                   cancelButtonTitle:BWHockeyLocalize(@"HockeyIgnore")
+                                                   otherButtonTitles:BWHockeyLocalize(@"HockeyShowUpdate"), nil
                                    ] autorelease];
         IF_IOS4_OR_GREATER(
                            if (self.ishowingDirectInstallOption) {
-                               [alertView addButtonWithTitle:BWLocalize(@"HockeyInstallUpdate")];
+                               [alertView addButtonWithTitle:BWHockeyLocalize(@"HockeyInstallUpdate")];
                            }
                            )
         [alertView setTag:0];
@@ -486,6 +470,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 - (void)showAuthorizationScreen:(NSString *)message image:(NSString *)image {
     if (authorizeView_ != nil) {
         [authorizeView_ removeFromSuperview];
+        [authorizeView_ release];
     }
     
     UIWindow *visibleWindow = [self findVisibleWindow];
@@ -558,11 +543,11 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         [invocation invoke];
         [invocation getReturnValue:&feedResult];
     } else {
-        BWLog(@"Error: You need a JSON Framework in your runtime!");
+        BWHockeyLog(@"Error: You need a JSON Framework in your runtime!");
         [self doesNotRecognizeSelector:_cmd];
     }    
     if (error) {
-        BWLog(@"Error while parsing response feed: %@", [error localizedDescription]);
+        BWHockeyLog(@"Error while parsing response feed: %@", [error localizedDescription]);
         [self reportError_:error];
         return nil;
     }
@@ -593,22 +578,16 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 }
 
 - (void)checkForAuthorization {
-    if (reachability_) {
-        [reachability_ performSelector:NSSelectorFromString(@"stopNotifier")];    
-        [reachability_ release];
-        reachability_ = nil;
-    }
-    
-    NSMutableString *parameter = [NSMutableString stringWithFormat:@"api/2/apps/%@", [self encodedAppIdentifier_]];
+    NSMutableString *parameter = [NSMutableString stringWithFormat:@"api/2/apps/%@", [[self encodedAppIdentifier_] bw_URLEncodedString]];
     
     [parameter appendFormat:@"?format=json&authorize=yes&app_version=%@&udid=%@",
-     [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
-     [[UIDevice currentDevice] uniqueIdentifier]
+     [[[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString],
+     [[[UIDevice currentDevice] uniqueIdentifier] bw_URLEncodedString]
      ];
     
     // build request & send
     NSString *url = [NSString stringWithFormat:@"%@%@", self.updateURL, parameter];
-    BWLog(@"sending api request to %@", url);
+    BWHockeyLog(@"sending api request to %@", url);
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url] cachePolicy:1 timeoutInterval:10.0];
     [request setHTTPMethod:@"GET"];
@@ -622,7 +601,6 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
     if ([responseData length]) {
         NSString *responseString = [[[NSString alloc] initWithBytes:[responseData bytes] length:[responseData length] encoding: NSUTF8StringEncoding] autorelease];
-        NSLog(@"%@", responseString);
         
         NSDictionary *feedDict = (NSDictionary *)[self parseJSONResultString:responseString];
         
@@ -658,16 +636,14 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
                 [[NSUserDefaults standardUserDefaults] setObject:token forKey:kHockeyAuthorizedToken];
                 [[NSUserDefaults standardUserDefaults] synchronize];
                 
-                [self showAuthorizationScreen:BWLocalize(@"HockeyAuthorizationDenied") image:@"authorize_denied.png"];
+                [self showAuthorizationScreen:BWHockeyLocalize(@"HockeyAuthorizationDenied") image:@"authorize_denied.png"];
             }
         }
         
     }
     
     if (failed) {
-        [self showAuthorizationScreen:BWLocalize(@"HockeyAuthorizationOffline") image:@"authorize_request.png"];
-        
-        [self setupReachability:@selector(checkForAuthorization)];        
+        [self showAuthorizationScreen:BWHockeyLocalize(@"HockeyAuthorizationOffline") image:@"authorize_request.png"];
     }
 }
 
@@ -684,37 +660,37 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
     // do we need to update?
     if (![self shouldCheckForUpdates] && !currentHockeyViewController_) {
-        BWLog(@"update not needed right now");
+        BWHockeyLog(@"update not needed right now");
         self.checkInProgress = NO;
         return;
     }
     
     NSMutableString *parameter = [NSMutableString stringWithFormat:@"api/2/apps/%@?format=json&udid=%@", 
-                                  [self encodedAppIdentifier_],
-                                  [[UIDevice currentDevice] uniqueIdentifier]];
+                                  [[self encodedAppIdentifier_] bw_URLEncodedString],
+                                  [[[UIDevice currentDevice] uniqueIdentifier] bw_URLEncodedString]];
     
     // add additional statistics if user didn't disable flag
     if (self.shouldSendUserData) {
         [parameter appendFormat:@"&app_version=%@&os=iOS&os_version=%@&device=%@&lang=%@&usage_time=%@&first_start_at=%@",
-         [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
-         [[UIDevice currentDevice] systemVersion],
-         [self getDevicePlatform_],
-         [[[NSBundle mainBundle] preferredLocalizations] objectAtIndex:0],
-         [[self currentUsageString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding],
-         [[self installationDateString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]
+         [[[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString],
+         [[[UIDevice currentDevice] systemVersion] bw_URLEncodedString],
+         [[self getDevicePlatform_] bw_URLEncodedString],
+         [[[[NSBundle mainBundle] preferredLocalizations] objectAtIndex:0] bw_URLEncodedString],
+         [[[self currentUsageString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString],
+         [[[self installationDateString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString]
          ];
     }
     
     // build request & send
     NSString *url = [NSString stringWithFormat:@"%@%@", self.updateURL, parameter];
-    BWLog(@"sending api request to %@", url);
+    BWHockeyLog(@"sending api request to %@", url);
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url] cachePolicy:1 timeoutInterval:10.0];
     [request setHTTPMethod:@"GET"];
     [request setValue:@"Hockey/iOS" forHTTPHeaderField:@"User-Agent"];
     [request setValue:@"gzip" forHTTPHeaderField:@"Accept-Encoding"];
     
-    self.urlConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    self.urlConnection = [[[NSURLConnection alloc] initWithRequest:request delegate:self] autorelease];
     if (!urlConnection_) {
         self.checkInProgress = NO;
         [self reportError_:[NSError errorWithDomain:kHockeyErrorDomain code:HockeyAPIClientCannotCreateConnection userInfo:
@@ -724,20 +700,20 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 
 - (BOOL)initiateAppDownload {
     if (!self.isUpdateAvailable) {
-        BWLog(@"Warning: No update available. Aborting.");
+        BWHockeyLog(@"Warning: No update available. Aborting.");
         return NO;
     }
     
     IF_PRE_IOS4
     (
-     NSString *message = [NSString stringWithFormat:BWLocalize(@"HockeyiOS3Message"), self.updateURL];
-     UIAlertView *alert = [[[UIAlertView alloc] initWithTitle:BWLocalize(@"HockeyWarning") message:message delegate:nil cancelButtonTitle:BWLocalize(@"HockeyOK") otherButtonTitles:nil] autorelease];
+     NSString *message = [NSString stringWithFormat:BWHockeyLocalize(@"HockeyiOS3Message"), self.updateURL];
+     UIAlertView *alert = [[[UIAlertView alloc] initWithTitle:BWHockeyLocalize(@"HockeyWarning") message:message delegate:nil cancelButtonTitle:BWHockeyLocalize(@"HockeyOK") otherButtonTitles:nil] autorelease];
      [alert show];
      return NO;
      )
     
 #if TARGET_IPHONE_SIMULATOR
-    UIAlertView *alert = [[[UIAlertView alloc] initWithTitle:BWLocalize(@"HockeyWarning") message:BWLocalize(@"HockeySimulatorMessage") delegate:nil cancelButtonTitle:BWLocalize(@"HockeyOK") otherButtonTitles:nil] autorelease];
+    UIAlertView *alert = [[[UIAlertView alloc] initWithTitle:BWHockeyLocalize(@"HockeyWarning") message:BWHockeyLocalize(@"HockeySimulatorMessage") delegate:nil cancelButtonTitle:BWHockeyLocalize(@"HockeyOK") otherButtonTitles:nil] autorelease];
     [alert show];
     return NO;
 #endif
@@ -750,9 +726,9 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     NSString *hockeyAPIURL = [NSString stringWithFormat:@"%@api/2/apps/%@?format=plist%@", self.updateURL, [self encodedAppIdentifier_], extraParameter];
     NSString *iOSUpdateURL = [NSString stringWithFormat:@"itms-services://?action=download-manifest&url=%@", [hockeyAPIURL bw_URLEncodedString]];
     
-    BWLog(@"API Server Call: %@, calling iOS with %@", hockeyAPIURL, iOSUpdateURL);
+    BWHockeyLog(@"API Server Call: %@, calling iOS with %@", hockeyAPIURL, iOSUpdateURL);
     BOOL success = [[UIApplication sharedApplication] openURL:[NSURL URLWithString:iOSUpdateURL]];
-    BWLog(@"System returned: %d", success);
+    BWHockeyLog(@"System returned: %d", success);
     return success;
 }
 
@@ -769,6 +745,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     if (!self.requireAuthorization) {
         if (authorizeView_ != nil) {
             [authorizeView_ removeFromSuperview];
+            [authorizeView_ release];
         }
         
         return YES;
@@ -776,7 +753,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
     HockeyAuthorizationState state = [self authorizationState];
     if (state == HockeyAuthorizationDenied) {
-        [self showAuthorizationScreen:BWLocalize(@"HockeyAuthorizationDenied") image:@"authorize_denied.png"];
+        [self showAuthorizationScreen:BWHockeyLocalize(@"HockeyAuthorizationDenied") image:@"authorize_denied.png"];
     } else if (state == HockeyAuthorizationAllowed) {
         self.requireAuthorization = NO;
         return YES;
@@ -790,20 +767,26 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 - (void)startManager {
     if (![self appVersionIsAuthorized]) {
         if ([self authorizationState] == HockeyAuthorizationPending) {
-            [self showAuthorizationScreen:BWLocalize(@"HockeyAuthorizationProgress") image:@"authorize_request.png"];
+            [self showAuthorizationScreen:BWHockeyLocalize(@"HockeyAuthorizationProgress") image:@"authorize_request.png"];
             
             [self performSelector:@selector(checkForAuthorization) withObject:nil afterDelay:0.0f];
         }
     } else {
         if ([self shouldCheckForUpdates]) {
-            // initial update check if we don't have reachability
-            if (!NSClassFromString(@"Reachability")) {
-                [self performSelector:@selector(checkForUpdate) withObject:nil afterDelay:0.0f];
-            } else {
-                // we did not check yet, so force reachability to check
-                lastCheckFailed_ = YES;
-                [self setupReachability:@selector(reachabilityChanged:)];
-            }
+            [self performSelector:@selector(checkForUpdate) withObject:nil afterDelay:0.0f];
+        }
+    }
+}
+
+
+- (void)wentOnline {
+    if (![self appVersionIsAuthorized]) {
+        if ([self authorizationState] == HockeyAuthorizationPending) {
+            [self checkForAuthorization];
+        }
+    } else {
+        if (lastCheckFailed_) {
+            [self checkForUpdate];
         }
     }
 }
@@ -858,7 +841,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
 	if ([self.receivedData length]) {
         NSString *responseString = [[[NSString alloc] initWithBytes:[receivedData_ bytes] length:[receivedData_ length] encoding: NSUTF8StringEncoding] autorelease];
-        BWLog(@"Received API response: %@", responseString);
+        BWHockeyLog(@"Received API response: %@", responseString);
         
         NSArray *feedArray = (NSArray *)[self parseJSONResultString:responseString];
         
@@ -907,9 +890,9 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
             NSString *shortVersionString = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
             shortVersionString = shortVersionString ? [NSString stringWithFormat:@"%@ ", shortVersionString] : @"";
             versionString = [shortVersionString length] ? [NSString stringWithFormat:@"(%@)", versionString] : versionString;
-            NSString *currentVersionString = [NSString stringWithFormat:@"%@ %@ %@%@", self.app.name, BWLocalize(@"HockeyVersion"), shortVersionString, versionString];
-            NSString *alertMsg = [NSString stringWithFormat:BWLocalize(@"HockeyNoUpdateNeededMessage"), currentVersionString];
-            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:BWLocalize(@"HockeyNoUpdateNeededTitle") message:alertMsg delegate:nil cancelButtonTitle:BWLocalize(@"HockeyOK") otherButtonTitles:nil];
+            NSString *currentVersionString = [NSString stringWithFormat:@"%@ %@ %@%@", self.app.name, BWHockeyLocalize(@"HockeyVersion"), shortVersionString, versionString];
+            NSString *alertMsg = [NSString stringWithFormat:BWHockeyLocalize(@"HockeyNoUpdateNeededMessage"), currentVersionString];
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:BWHockeyLocalize(@"HockeyNoUpdateNeededTitle") message:alertMsg delegate:nil cancelButtonTitle:BWHockeyLocalize(@"HockeyOK") otherButtonTitles:nil];
             [alert show];
             [alert release];
         }
@@ -926,28 +909,6 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     }
 }
 
-- (void)reachabilityChanged:(NSNotification *)notification {
-    id reachability = reachability_;
-    if ([notification.object isKindOfClass:NSClassFromString(@"Reachability")]) {
-        reachability = notification.object;
-    }
-    if (reachability) {
-        NSInteger networkStatus;
-        SEL currentReachabilityStatusSelector = NSSelectorFromString(@"currentReachabilityStatus");
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[reachability methodSignatureForSelector:currentReachabilityStatusSelector]];
-        invocation.target = reachability;
-        invocation.selector = currentReachabilityStatusSelector;
-        [invocation invoke];
-        [invocation getReturnValue:&networkStatus];
-        
-        // 0 = NotReachable
-        BOOL isOffline = networkStatus == 0;
-        self.updateURLOffline = isOffline;
-        if (!isOffline && lastCheckFailed_) {
-            [self checkForUpdate];
-        }
-    }
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark -
@@ -957,7 +918,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     if (currentHockeyViewController_ != aCurrentHockeyViewController) {
         [currentHockeyViewController_ release];
         currentHockeyViewController_ = [aCurrentHockeyViewController retain];
-        //BWLog(@"active hockey view controller: %@", aCurrentHockeyViewController);
+        //BWHockeyLog(@"active hockey view controller: %@", aCurrentHockeyViewController);
     }
 }
 
@@ -972,10 +933,10 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
                        NSNotificationCenter *dnc = [NSNotificationCenter defaultCenter];
                        if (!updateURL_ && anUpdateURL) {
                            [dnc addObserver:self selector:@selector(startUsage) name:UIApplicationDidBecomeActiveNotification object:nil];
-                           [dnc addObserver:self selector:@selector(stopUsage) name:UIApplicationDidEnterBackgroundNotification object:nil];
+                           [dnc addObserver:self selector:@selector(stopUsage) name:UIApplicationWillResignActiveNotification object:nil];
                        } else if (updateURL_ && !anUpdateURL) {
                            [dnc removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
-                           [dnc removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+                           [dnc removeObserver:self name:UIApplicationWillResignActiveNotification object:nil];
                        }
                        )
     
@@ -985,6 +946,15 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     }
     
     [self performSelector:@selector(startManager) withObject:nil afterDelay:0.0f];
+}
+
+- (void)setAppIdentifier:(NSString *)anAppIdentifier {    
+    if (appIdentifier_ != anAppIdentifier) {
+        [appIdentifier_ release];
+        appIdentifier_ = [anAppIdentifier copy];
+    }
+    
+    [self setUpdateURL:@"https://beta.hockeyapp.net/"];
 }
 
 - (void)setCheckForUpdateOnLaunch:(BOOL)flag {
