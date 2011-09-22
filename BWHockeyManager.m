@@ -49,6 +49,8 @@
 - (void)startManager;
 - (void)wentOnline;
 - (void)showAuthorizationScreen:(NSString *)message image:(NSString *)image;
+- (BOOL)canSendUserData;
+- (BOOL)canSendUsageTime;
 - (NSString *)currentUsageString;
 - (NSString *)installationDateString;
 - (NSString *)authenticationToken;
@@ -61,6 +63,7 @@
 @property (nonatomic, copy) NSArray *apps;
 @property (nonatomic, retain) NSURLConnection *urlConnection;
 @property (nonatomic, copy) NSDate *usageStartTimestamp;
+@property (nonatomic, retain) UIView *authorizeView;
 @end
 
 // hockey api error domain
@@ -80,6 +83,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 @synthesize updateURL = updateURL_;
 @synthesize appIdentifier = appIdentifier_;
 @synthesize urlConnection = urlConnection_;
+@synthesize loggingEnabled = loggingEnabled_;
 @synthesize checkInProgress = checkInProgress_;
 @synthesize receivedData = receivedData_;
 @synthesize sendUserData = sendUserData_;
@@ -100,6 +104,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 @synthesize showDirectInstallOption = showDirectInstallOption_;
 @synthesize requireAuthorization = requireAuthorization_;
 @synthesize authenticationSecret = authenticationSecret_;
+@synthesize authorizeView = authorizeView_;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark -
@@ -204,12 +209,21 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     return [formatter stringFromDate:[NSDate dateWithTimeIntervalSinceReferenceDate:[(NSNumber *)[[NSUserDefaults standardUserDefaults] valueForKey:kDateOfVersionInstallation] doubleValue]]];
 }
 
+- (NSString *)deviceIdentifier {
+  if ([[UIDevice currentDevice] respondsToSelector:@selector(uniqueIdentifier)]) {
+    return [[UIDevice currentDevice] performSelector:@selector(uniqueIdentifier)];
+  }
+  else {
+    return @"invalid";
+  }
+}
+
 - (NSString *)authenticationToken {
     return [BWmd5([NSString stringWithFormat:@"%@%@%@%@", 
                    authenticationSecret_, 
                    [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"],
                    [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"],
-                   [[UIDevice currentDevice] uniqueIdentifier]
+                   [self deviceIdentifier]
                    ]
                   ) lowercaseString];
 }
@@ -281,6 +295,31 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     return visibleWindow;
 }
 
+- (BOOL)canSendUserData {
+    if (self.shouldSendUserData) {
+        if (self.allowUserToDisableSendData) {
+            return self.userAllowsSendUserData;
+        }
+        
+        return YES;
+    }
+    
+    return NO;
+}
+
+- (BOOL)canSendUsageTime {
+    if (self.shouldSendUsageTime) {
+        if (self.allowUserToDisableSendData) {
+            return self.userAllowsSendUsageTime;
+        }
+        
+        return YES;
+    }
+    
+    return NO;
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark -
 #pragma mark NSObject
@@ -298,6 +337,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         authorizeView_ = nil;
         requireAuthorization_ = NO;
         authenticationSecret_= nil;
+        loggingEnabled_ = NO;
         
         // set defaults
         self.showDirectInstallOption = NO;
@@ -305,7 +345,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         self.sendUserData = YES;
         self.sendUsageTime = YES;
         self.allowUserToDisableSendData = YES;
-        self.alwaysShowUpdateReminder = NO;
+        self.alwaysShowUpdateReminder = YES;
         self.checkForUpdateOnLaunch = YES;
         self.showUserSettings = YES;
         self.compareVersionType = HockeyComparisonResultDifferent;
@@ -468,13 +508,9 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 
 // open an authorization screen
 - (void)showAuthorizationScreen:(NSString *)message image:(NSString *)image {
-    if (authorizeView_ != nil) {
-        [authorizeView_ removeFromSuperview];
-        [authorizeView_ release];
-    }
+    self.authorizeView = nil;
     
     UIWindow *visibleWindow = [self findVisibleWindow];
-    
     if (visibleWindow == nil) {
         [self alertFallback:message];
         return;
@@ -482,17 +518,17 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
     CGRect frame = [visibleWindow frame];
     
-    authorizeView_ = [[[UIView alloc] initWithFrame:frame] autorelease];
+    self.authorizeView = [[[UIView alloc] initWithFrame:frame] autorelease];
     UIImageView *backgroundView = [[[UIImageView alloc] initWithImage:[UIImage bw_imageNamed:@"bg.png" bundle:kHockeyBundleName]] autorelease];
     backgroundView.contentMode = UIViewContentModeScaleAspectFill;
     backgroundView.frame = frame;
-    [authorizeView_ addSubview:backgroundView];
+    [self.authorizeView addSubview:backgroundView];
     
     if (image != nil) {
         UIImageView *imageView = [[[UIImageView alloc] initWithImage:[UIImage bw_imageNamed:image bundle:kHockeyBundleName]] autorelease];
         imageView.contentMode = UIViewContentModeCenter;
         imageView.frame = frame;
-        [authorizeView_ addSubview:imageView];
+        [self.authorizeView addSubview:imageView];
     }
     
     if (message != nil) {
@@ -507,10 +543,10 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         label.numberOfLines = 2;
         label.backgroundColor = [UIColor clearColor];
         
-        [authorizeView_ addSubview:label];
+        [self.authorizeView addSubview:label];
     }
     
-    [visibleWindow addSubview:authorizeView_];
+    [visibleWindow addSubview:self.authorizeView];
 }
 
 
@@ -582,7 +618,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
     [parameter appendFormat:@"?format=json&authorize=yes&app_version=%@&udid=%@",
      [[[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString],
-     [[[UIDevice currentDevice] uniqueIdentifier] bw_URLEncodedString]
+     [[self deviceIdentifier] bw_URLEncodedString]
      ];
     
     // build request & send
@@ -610,6 +646,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
                                 [NSDictionary dictionaryWithObjectsAndKeys:@"Server returned empty response.", NSLocalizedDescriptionKey, nil]]];
             return;
 		} else {
+            BWHockeyLog(@"Received API response: %@", responseString);
             NSString *token = [[feedDict objectForKey:@"authcode"] lowercaseString];
             failed = NO;
             if ([[self authenticationToken] compare:token] == NSOrderedSame) {
@@ -621,7 +658,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
                 [[NSUserDefaults standardUserDefaults] synchronize];
                 
                 self.requireAuthorization = NO;
-                [authorizeView_ removeFromSuperview];
+                self.authorizeView = nil;
                 
                 // now continue with an update check right away
                 if (self.checkForUpdateOnLaunch) {
@@ -629,8 +666,8 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
                 }
             } else {
                 // different token, block this version
-                NSLog(@"AUTH FAILURE");
-                
+                BWHockeyLog(@"AUTH FAILURE: %@", [self authenticationToken]);
+                                
                 // store the new data
                 [[NSUserDefaults standardUserDefaults] setObject:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] forKey:kHockeyAuthorizedVersion];
                 [[NSUserDefaults standardUserDefaults] setObject:token forKey:kHockeyAuthorizedToken];
@@ -667,18 +704,22 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     
     NSMutableString *parameter = [NSMutableString stringWithFormat:@"api/2/apps/%@?format=json&udid=%@", 
                                   [[self encodedAppIdentifier_] bw_URLEncodedString],
-                                  [[[UIDevice currentDevice] uniqueIdentifier] bw_URLEncodedString]];
+                                  [[self deviceIdentifier] bw_URLEncodedString]];
     
     // add additional statistics if user didn't disable flag
-    if (self.shouldSendUserData) {
-        [parameter appendFormat:@"&app_version=%@&os=iOS&os_version=%@&device=%@&lang=%@&usage_time=%@&first_start_at=%@",
+    if ([self canSendUserData]) {
+        [parameter appendFormat:@"&app_version=%@&os=iOS&os_version=%@&device=%@&lang=%@&first_start_at=%@",
          [[[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString],
          [[[UIDevice currentDevice] systemVersion] bw_URLEncodedString],
          [[self getDevicePlatform_] bw_URLEncodedString],
          [[[[NSBundle mainBundle] preferredLocalizations] objectAtIndex:0] bw_URLEncodedString],
-         [[[self currentUsageString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString],
          [[[self installationDateString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString]
          ];
+        if ([self canSendUsageTime]) {
+            [parameter appendFormat:@"&usage_time=%@",
+             [[[self currentUsageString] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding] bw_URLEncodedString]
+             ];
+        }
     }
     
     // build request & send
@@ -719,8 +760,8 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 #endif
     
     NSString *extraParameter = [NSString string];
-    if (self.shouldSendUserData) {
-        extraParameter = [NSString stringWithFormat:@"&udid=%@", [[UIDevice currentDevice] uniqueIdentifier]];
+    if ([self canSendUserData]) {
+        extraParameter = [NSString stringWithFormat:@"&udid=%@", [self deviceIdentifier]];
     }
     
     NSString *hockeyAPIURL = [NSString stringWithFormat:@"%@api/2/apps/%@?format=plist%@", self.updateURL, [self encodedAppIdentifier_], extraParameter];
@@ -743,11 +784,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     }
     
     if (!self.requireAuthorization) {
-        if (authorizeView_ != nil) {
-            [authorizeView_ removeFromSuperview];
-            [authorizeView_ release];
-        }
-        
+        self.authorizeView = nil;
         return YES;
     }
     
@@ -954,7 +991,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
         appIdentifier_ = [anAppIdentifier copy];
     }
     
-    [self setUpdateURL:@"https://beta.hockeyapp.net/"];
+    [self setUpdateURL:@"https://rink.hockeyapp.net/"];
 }
 
 - (void)setCheckForUpdateOnLaunch:(BOOL)flag {
@@ -974,7 +1011,7 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
 - (void)setUserAllowsSendUserData:(BOOL)flag {
     userAllowsSendUserData_ = flag;
     
-    [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInteger:userAllowsSendUserData_] forKey:kHockeyAllowUsageSetting];
+    [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInteger:userAllowsSendUserData_] forKey:kHockeyAllowUserSetting];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
@@ -1034,6 +1071,13 @@ static NSString *kHockeyErrorDomain = @"HockeyErrorDomain";
     return app;
 }
 
+- (void)setAuthorizeView:(UIView *)anAuthorizeView {
+    if (authorizeView_ != anAuthorizeView) {
+        [authorizeView_ removeFromSuperview];
+        [authorizeView_ release];
+        authorizeView_ = [anAuthorizeView retain];
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark -

@@ -97,9 +97,13 @@
         if (popOverController_ == nil) {
             popOverController_ = [[popoverControllerClass alloc] initWithContentViewController:settings];
         }
-        [popOverController_ setPopoverContentSize: CGSizeMake(320, 440)];
-        [popOverController_ presentPopoverFromBarButtonItem:self.navigationItem.rightBarButtonItem
-                                   permittedArrowDirections:UIPopoverArrowDirectionUp animated:YES];
+        if ([popOverController_ contentViewController].view.window) {
+            [popOverController_ dismissPopoverAnimated:YES];
+        }else {
+            [popOverController_ setPopoverContentSize: CGSizeMake(320, 440)];
+            [popOverController_ presentPopoverFromBarButtonItem:self.navigationItem.rightBarButtonItem
+                                       permittedArrowDirections:UIPopoverArrowDirectionUp animated:YES];
+        }
     } else {
 
         IF_3_2_OR_GREATER(
@@ -263,7 +267,18 @@
 - (void)onAction:(id)sender {
     if (self.modal) {
 
-		if (self.navigationController.parentViewController) {
+        // Note that as of 5.0, parentViewController will no longer return the presenting view controller
+
+        UIViewController *presentingViewController = nil;
+
+        // this 2 lines can be used when compiling against iOS5 base SDK
+//        IF_IOS5_OR_GREATER(presentingViewController = self.navigationController.presentingViewController;);
+//        IF_PRE_IOS5(presentingViewController = self.navigationController.parentViewController;)
+
+        // these following line should be replaced with the above 2 lines when compiled against iOS5 base SDK
+        presentingViewController = self.navigationController.parentViewController;
+        
+		if (presentingViewController) {
 			[self.navigationController dismissModalViewControllerAnimated:YES];
 		} else {
 			[self.navigationController.view removeFromSuperview];
@@ -311,6 +326,7 @@
     [self.hockeyManager addObserver:self forKeyPath:@"isUpdateURLOffline" options:0 context:nil];
     [self.hockeyManager addObserver:self forKeyPath:@"updateAvailable" options:0 context:nil];
     [self.hockeyManager addObserver:self forKeyPath:@"apps" options:0 context:nil];
+    kvoRegistered_ = YES;
 
     self.tableView.backgroundColor = BW_RGBCOLOR(200, 202, 204);
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
@@ -389,6 +405,8 @@
 
 - (void)viewWillDisappear:(BOOL)animated {
     self.hockeyManager.currentHockeyViewController = nil;
+    //if the popover is still visible, dismiss it
+    [popOverController_ dismissPopoverAnimated:YES];
     [super viewWillDisappear:animated];
     [[UIApplication sharedApplication] setStatusBarStyle:statusBarStyle_];
 }
@@ -456,11 +474,18 @@
 
 - (void)viewDidUnload {
     [appStoreHeader_ release]; appStoreHeader_ = nil;
+    [popOverController_ release], popOverController_ = nil;
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [self.hockeyManager removeObserver:self forKeyPath:@"checkInProgress"];
-    [self.hockeyManager removeObserver:self forKeyPath:@"isUpdateURLOffline"];
-    [self.hockeyManager removeObserver:self forKeyPath:@"updateAvailable"];
-    [self.hockeyManager removeObserver:self forKeyPath:@"apps"];
+    
+    // test if KVO's are registered. if class is destroyed before it was shown(viewDidLoad) no KVOs are registered.
+    if (kvoRegistered_) {
+        [self.hockeyManager removeObserver:self forKeyPath:@"checkInProgress"];
+        [self.hockeyManager removeObserver:self forKeyPath:@"isUpdateURLOffline"];
+        [self.hockeyManager removeObserver:self forKeyPath:@"updateAvailable"];
+        [self.hockeyManager removeObserver:self forKeyPath:@"apps"];
+        kvoRegistered_ = NO;
+    }
+    
     [super viewDidUnload];
 }
 

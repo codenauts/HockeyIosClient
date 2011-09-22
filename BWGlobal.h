@@ -48,12 +48,7 @@
 // Notification message which HockeyManager is listening to, to retry requesting updated from the server
 #define BWHockeyNetworkBecomeReachable @"NetworkDidBecomeReachable"
 
-
-#ifdef kHockeyDebugEnabled
-#define BWHockeyLog(fmt, ...) NSLog((@"[HockeyLib] %s/%d " fmt), __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__);
-#else
-#define BWHockeyLog(...)
-#endif
+#define BWHockeyLog(fmt, ...) do { if([BWHockeyManager sharedHockeyManager].isLoggingEnabled) { NSLog((@"[HockeyLib] %s/%d " fmt), __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__); }} while(0)
 
 NSBundle *hockeyBundle(void);
 NSString *BWmd5(NSString *str);
@@ -95,6 +90,27 @@ __VA_ARGS__ \
 
 #define IF_PRE_IOS4(...)  \
 if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_4_0)  \
+{ \
+__VA_ARGS__ \
+}
+
+
+
+#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_5_0
+#define kCFCoreFoundationVersionNumber_iPhoneOS_5_0 666.1
+#endif
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 50000
+#define IF_IOS5_OR_GREATER(...) \
+if (kCFCoreFoundationVersionNumber >= kCFCoreFoundationVersionNumber_iPhoneOS_5_0) \
+{ \
+__VA_ARGS__ \
+}
+#else
+#define IF_IOS5_OR_GREATER(...)
+#endif
+
+#define IF_PRE_IOS5(...)  \
+if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_iPhoneOS_5_0)  \
 { \
 __VA_ARGS__ \
 }

@@ -64,6 +64,7 @@ typedef enum {
     
     NSMutableData *receivedData_;
     
+    BOOL loggingEnabled_;
     BOOL checkInProgress_;
     BOOL dataFound;
     BOOL updateAvailable_;
@@ -113,6 +114,10 @@ typedef enum {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // settings
 
+// if YES, states will be logged using NSLog. Only enable this for debugging!
+// if NO, nothing will be logged. (default)
+@property (nonatomic, assign, getter=isLoggingEnabled) BOOL loggingEnabled;
+
 // if YES, the current user data is send: device type, iOS version, app version, UDID (default)
 // if NO, no such data is send to the server
 @property (nonatomic, assign, getter=shouldSendUserData) BOOL sendUserData;
@@ -133,24 +138,24 @@ typedef enum {
 // if NO, the user denied to send usage data
 @property (nonatomic, assign, getter=doesUserAllowsSendUsageTime) BOOL userAllowsSendUsageTime;
 
-// if YES, the new version alert will be displayed always if the current version is outdated
-// if NO, the alert will be displayed only once for each new update (default)
+// if YES, the new version alert will be displayed always if the current version is outdated (default)
+// if NO, the alert will be displayed only once for each new update
 @property (nonatomic, assign) BOOL alwaysShowUpdateReminder;
 
 // if YES, the user can change the HockeyUpdateSetting value (default)
 // if NO, the user can not change it, and the default or developer defined value will be used
 @property (nonatomic, assign, getter=shouldShowUserSettings) BOOL showUserSettings;
 
-//if YES, then an update check will be performed after the application becomes active (default)
-//if NO, then the update check will not happen unless invoked explicitly
+// if YES, then an update check will be performed after the application becomes active (default)
+// if NO, then the update check will not happen unless invoked explicitly
 @property (nonatomic, assign, getter=isCheckForUpdateOnLaunch) BOOL checkForUpdateOnLaunch;
 
-//if YES, the alert notifying about an new update also shows a button to install the update directly
-//if NO, the alert notifying about an new update only shows ignore and show update button
+// if YES, the alert notifying about an new update also shows a button to install the update directly
+// if NO, the alert notifying about an new update only shows ignore and show update button
 @property (nonatomic, assign, getter=ishowingDirectInstallOption) BOOL showDirectInstallOption;
 
-//if YES, each app version needs to be authorized by the server to run on this device
-//if NO, each app version does not need to be authorized (default) 
+// if YES, each app version needs to be authorized by the server to run on this device
+// if NO, each app version does not need to be authorized (default) 
 @property (nonatomic, assign, getter=isRequireAuthorization) BOOL requireAuthorization;
 
 // HockeyComparisonResultDifferent: alerts if the version on the server is different (default)
