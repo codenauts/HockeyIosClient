@@ -3,7 +3,7 @@
 //  HockeyDemo
 //
 //  Created by Andreas Linde on 3/8/11.
-//  Copyright 2011 Buzzworks. All rights reserved.
+//  Copyright 2011 Andreas Linde. All rights reserved.
 //
 
 #import "BWHockeySettingsViewController.h"
@@ -33,7 +33,7 @@
         UITableView *tableView_ = [[[UITableView alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - 260, self.view.frame.size.width, 260) style:UITableViewStyleGrouped] autorelease];
         tableView_.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleWidth;
 
-        IF_3_2_OR_GREATER(
+        BW_IF_3_2_OR_GREATER(
                           if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
                               self.view.backgroundColor = BW_RGBCOLOR(200, 202, 204);
                               tableView_.backgroundColor = BW_RGBCOLOR(200, 202, 204);
@@ -42,7 +42,7 @@
                               tableView_.autoresizingMask = tableView_.autoresizingMask | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
                           }
                           )
-        IF_PRE_3_2(
+        BW_IF_PRE_3_2(
                    self.navigationItem.rightBarButtonItem = [[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                                                                            target:self
                                                                                                            action:@selector(dismissSettings)] autorelease];

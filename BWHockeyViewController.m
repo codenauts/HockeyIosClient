@@ -106,11 +106,11 @@
         }
     } else {
 
-        IF_3_2_OR_GREATER(
+        BW_IF_3_2_OR_GREATER(
                           settings.modalTransitionStyle = UIModalTransitionStylePartialCurl;
                           [self presentModalViewController:settings animated:YES];
                           )
-        IF_PRE_3_2(
+        BW_IF_PRE_3_2(
                    UINavigationController *navController = [[[UINavigationController alloc] initWithRootViewController:settings] autorelease];
                    navController.modalTransitionStyle = UIModalTransitionStyleCoverVertical;
                    [self presentModalViewController:navController animated:YES];
@@ -119,8 +119,8 @@
 }
 
 - (UIImage *)addGlossToImage_:(UIImage *)image {
-    IF_IOS4_OR_GREATER(UIGraphicsBeginImageContextWithOptions(image.size, NO, 0.0);)
-    IF_PRE_IOS4(UIGraphicsBeginImageContext(image.size);)
+    BW_IF_IOS4_OR_GREATER(UIGraphicsBeginImageContextWithOptions(image.size, NO, 0.0);)
+    BW_IF_PRE_IOS4(UIGraphicsBeginImageContext(image.size);)
 
     [image drawAtPoint:CGPointZero];
     UIImage *iconGradient = [UIImage bw_imageNamed:@"IconGradient.png" bundle:kHockeyBundleName];
@@ -173,7 +173,7 @@
         footerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         footerView.backgroundColor = BW_RGBCOLOR(200, 202, 204);
         UIButton *footerButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        IF_IOS4_OR_GREATER(
+        BW_IF_IOS4_OR_GREATER(
                            //footerButton.layer.shadowOffset = CGSizeMake(-2, 2);
                            footerButton.layer.shadowColor = [[UIColor blackColor] CGColor];
                            footerButton.layer.shadowRadius = 2.0f;
@@ -266,29 +266,23 @@
 
 - (void)onAction:(id)sender {
     if (self.modal) {
-
-        // Note that as of 5.0, parentViewController will no longer return the presenting view controller
-
-        UIViewController *presentingViewController = nil;
-
-        // this 2 lines can be used when compiling against iOS5 base SDK
-//        IF_IOS5_OR_GREATER(presentingViewController = self.navigationController.presentingViewController;);
-//        IF_PRE_IOS5(presentingViewController = self.navigationController.parentViewController;)
-
-        // these following line should be replaced with the above 2 lines when compiled against iOS5 base SDK
-        presentingViewController = self.navigationController.parentViewController;
         
-		if (presentingViewController) {
-			[self.navigationController dismissModalViewControllerAnimated:YES];
-		} else {
-			[self.navigationController.view removeFromSuperview];
-		}
-	}
+        // Note that as of 5.0, parentViewController will no longer return the presenting view controller
+        UIViewController *presentingViewController = nil;
+        
+        BW_IF_IOS5_OR_GREATER(presentingViewController = self.navigationController.presentingViewController;);
+        BW_IF_PRE_IOS5(presentingViewController = self.navigationController.parentViewController;)
+        
+        if (presentingViewController) {
+            [self.navigationController dismissModalViewControllerAnimated:YES];
+        } else {
+            [self.navigationController.view removeFromSuperview];
+        }
+    }
     else
-		[self.navigationController popViewControllerAnimated:YES];
-
-	[[UIApplication sharedApplication] setStatusBarStyle:statusBarStyle_];
-
+        [self.navigationController popViewControllerAnimated:YES];
+    
+    [[UIApplication sharedApplication] setStatusBarStyle:statusBarStyle_];
 }
 
 - (CAGradientLayer *)backgroundLayer {
@@ -348,7 +342,7 @@
         }
     } else {
         BOOL useHighResIcon = NO;
-        IF_IOS4_OR_GREATER(if ([UIScreen mainScreen].scale == 2.0f) useHighResIcon = YES;)
+        BW_IF_IOS4_OR_GREATER(if ([UIScreen mainScreen].scale == 2.0f) useHighResIcon = YES;)
 
         for(NSString *icon in icons) {
             iconString = icon;
